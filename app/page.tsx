@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import type { ImageFormat, PdfFile, ToolType } from "@/types/pdf";
 import { validatePdfFile } from "@/lib/pdf/validatePdf";
 import { mergePdfs } from "@/lib/pdf/mergePdf";
-import { renderPdfPages } from "@/lib/pdf/renderPdf";
+import { convertPdfToImages } from "@/lib/pdf/pdfToImages";
 import { pdfToPpt } from "@/lib/ppt/pdfToPpt";
 import { createImageZip } from "@/lib/zip/createZip";
 import { downloadBlob } from "@/lib/downloads";
@@ -64,7 +64,7 @@ export default function Home() {
 
   async function process() {
     if (files.length === 0) {
-      setError("Pehle kam se kam ek PDF select karo.");
+      setError("Select at least one PDF first.");
       return;
     }
 
@@ -85,7 +85,7 @@ export default function Home() {
 
         for (const pdfFile of files) {
           const baseName = pdfFile.name.replace(/\.pdf$/i, "");
-          const pages = await renderPdfPages(
+          const pages = await convertPdfToImages(
             pdfFile.file,
             2,
             imageFormat === "jpeg" ? "image/jpeg" : "image/png",
@@ -93,10 +93,10 @@ export default function Home() {
               setProgress({ current, total, label: `Rendering ${pdfFile.name}: page ${current} of ${total}` })
           );
 
-          pages.forEach((page, i) => {
+          pages.forEach((dataUrl, i) => {
             const num = String(i + 1).padStart(3, "0");
             const ext = imageFormat === "jpeg" ? "jpg" : "png";
-            allImages.push({ name: `${baseName}-page-${num}.${ext}`, dataUrl: page.dataUrl });
+            allImages.push({ name: `${baseName}-page-${num}.${ext}`, dataUrl });
           });
         }
 
@@ -120,7 +120,7 @@ export default function Home() {
         downloadBlob(blob, "merged-presentation.pptx");
       }
     } catch (err) {
-      setError("Ye PDF process nahi ho paayi. File corrupted ya password-protected ho sakti hai.");
+      setError("This PDF could not be processed. It may be corrupted or password-protected.");
       console.error(err);
     } finally {
       setIsProcessing(false);
@@ -133,7 +133,7 @@ export default function Home() {
   return (
     <div className="container">
       <h1>PDF Utility Studio</h1>
-      <p className="privacy-note">🔒 Aapki PDF is browser se bahar kahin nahi jaati. Sab kuch yahin process hota hai.</p>
+      <p className="privacy-note">Your PDFs stay in this browser. Files are processed locally.</p>
 
       <div className="tool-row">
         <button className={`tool-btn ${tool === "merge" ? "active" : ""}`} onClick={() => setTool("merge")}>
@@ -148,8 +148,17 @@ export default function Home() {
       </div>
 
       <div
+        role="button"
+        tabIndex={0}
+        aria-label="Choose PDF files or drop them here"
         className={`upload-zone ${isDragging ? "dragging" : ""}`}
         onClick={() => inputRef.current?.click()}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            inputRef.current?.click();
+          }
+        }}
         onDragOver={(e) => {
           e.preventDefault();
           setIsDragging(true);
@@ -186,7 +195,7 @@ export default function Home() {
 
       {tool === "ppt" && files.length > 1 && (
         <div className="box" style={{ fontSize: 14, color: "var(--muted)" }}>
-          Note: PPT sirf pehli PDF (<b>{files[0]?.name}</b>) se banegi. Sabko ek saath chahiye to pehle Merge tool use karo.
+          All selected PDFs will be merged into one presentation. Each page is added as an image.
         </div>
       )}
 

@@ -1,7 +1,3 @@
-import * as pdfjsLib from "pdfjs-dist";
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs`;
-
 export type RenderedPage = {
   dataUrl: string;
   width: number;
@@ -14,6 +10,9 @@ export async function renderPdfPages(
   format: "image/jpeg" | "image/png" = "image/jpeg",
   onProgress?: (current: number, total: number) => void
 ): Promise<RenderedPage[]> {
+  const pdfjsLib = await import("pdfjs-dist");
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
+
   const bytes = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
   const pages: RenderedPage[] = [];

@@ -38,6 +38,7 @@ body {
   cursor: pointer;
   transition: border-color 0.15s;
 }
+.upload-zone:focus-visible { outline: 3px solid var(--primary); outline-offset: 3px; }
 .upload-zone.dragging { border-color: var(--primary); }
 
 .tool-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
