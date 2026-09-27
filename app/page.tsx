@@ -5,6 +5,7 @@ import type { ImageFormat, PdfFile, ToolType } from "@/types/pdf";
 import { validatePdfFile } from "@/lib/pdf/validatePdf";
 import { mergePdfs } from "@/lib/pdf/mergePdf";
 import { convertPdfToImages } from "@/lib/pdf/pdfToImages";
+import { imagesToPdf } from "@/lib/pdf/imagesToPdf";
 import { pdfToPpt } from "@/lib/ppt/pdfToPpt";
 import { createImageZip } from "@/lib/zip/createZip";
 import { downloadBlob } from "@/lib/downloads";
@@ -19,16 +20,23 @@ export default function Home() {
   const [error, setError] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const getAcceptType = () => {
+    if (tool === "images-to-pdf") return "image/png,image/jpeg,image/jpg";
+    return "application/pdf";
+  };
+
   function addFiles(fileList: FileList | File[]) {
     setError("");
     const incoming = Array.from(fileList);
     const valid: PdfFile[] = [];
 
     for (const file of incoming) {
-      const problem = validatePdfFile(file);
-      if (problem) {
-        setError(problem);
-        continue;
+      if (tool !== "images-to-pdf") {
+        const problem = validatePdfFile(file);
+        if (problem) {
+          setError(problem);
+          continue;
+        }
       }
       valid.push({
         id: crypto.randomUUID(),
@@ -64,13 +72,13 @@ export default function Home() {
 
   async function process() {
     if (files.length === 0) {
-      setError("Select at least one PDF first.");
+      setError("Please select files first.");
       return;
     }
 
     setError("");
     setIsProcessing(true);
-    setProgress({ current: 0, total: 1, label: "Shuru kar rahe hain..." });
+    setProgress({ current: 0, total: 1, label: "Processing..." });
 
     try {
       if (tool === "merge") {
@@ -107,9 +115,7 @@ export default function Home() {
 
       if (tool === "ppt") {
         setProgress({ current: 0, total: 1, label: "Merging all PDFs for presentation..." });
-        
         const mergedBytes = await mergePdfs(files.map((f) => f.file));
-        // Cast the Uint8Array buffer explicitly to resolve type mismatch
         const mergedBlob = new Blob([mergedBytes.buffer as ArrayBuffer], { type: "application/pdf" });
         const mergedFile = new File([mergedBlob], "merged-presentation.pdf", { type: "application/pdf" });
 
@@ -119,8 +125,17 @@ export default function Home() {
         );
         downloadBlob(blob, "merged-presentation.pptx");
       }
+
+      if (tool === "images-to-pdf") {
+        setProgress({ current: 0, total: files.length, label: "Converting images to PDF..." });
+        const pdfBlob = await imagesToPdf(
+          files.map((f) => f.file),
+          (current, total) => setProgress({ current, total, label: `Adding image ${current} of ${total}` })
+        );
+        downloadBlob(pdfBlob, "images-combined.pdf");
+      }
     } catch (err) {
-      setError("This PDF could not be processed. It may be corrupted or password-protected.");
+      setError("Failed to process files. Please verify the files and try again.");
       console.error(err);
     } finally {
       setIsProcessing(false);
@@ -133,24 +148,27 @@ export default function Home() {
   return (
     <div className="container">
       <h1>PDF Utility Studio</h1>
-      <p className="privacy-note">Your PDFs stay in this browser. Files are processed locally.</p>
+      <p className="privacy-note">Your files stay in this browser. Files are processed locally.</p>
 
-      <div className="tool-row">
-        <button className={`tool-btn ${tool === "merge" ? "active" : ""}`} onClick={() => setTool("merge")}>
+      <div className="tool-row" style={{ flexWrap: "wrap" }}>
+        <button className={`tool-btn ${tool === "merge" ? "active" : ""}`} onClick={() => { setTool("merge"); reset(); }}>
           Merge PDFs
         </button>
-        <button className={`tool-btn ${tool === "images" ? "active" : ""}`} onClick={() => setTool("images")}>
+        <button className={`tool-btn ${tool === "images" ? "active" : ""}`} onClick={() => { setTool("images"); reset(); }}>
           PDF → Images
         </button>
-        <button className={`tool-btn ${tool === "ppt" ? "active" : ""}`} onClick={() => setTool("ppt")}>
+        <button className={`tool-btn ${tool === "ppt" ? "active" : ""}`} onClick={() => { setTool("ppt"); reset(); }}>
           PDF → PPT
+        </button>
+        <button className={`tool-btn ${tool === "images-to-pdf" ? "active" : ""}`} onClick={() => { setTool("images-to-pdf"); reset(); }}>
+          Images → PDF
         </button>
       </div>
 
       <div
         role="button"
         tabIndex={0}
-        aria-label="Choose PDF files or drop them here"
+        aria-label="Upload files"
         className={`upload-zone ${isDragging ? "dragging" : ""}`}
         onClick={() => inputRef.current?.click()}
         onKeyDown={(e) => {
@@ -170,11 +188,15 @@ export default function Home() {
           if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
         }}
       >
-        <p>Drop PDF files here, or click to choose</p>
+        <p>
+          {tool === "images-to-pdf"
+            ? "Drop Images (JPG, PNG) here, or click to choose"
+            : "Drop PDF files here, or click to choose"}
+        </p>
         <input
           ref={inputRef}
           type="file"
-          accept="application/pdf"
+          accept={getAcceptType()}
           multiple
           hidden
           onChange={(e) => e.target.files && addFiles(e.target.files)}
@@ -230,7 +252,7 @@ export default function Home() {
 
       <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
         <button className="primary-btn" onClick={process} disabled={isProcessing || files.length === 0}>
-          {isProcessing ? "Processing..." : "Process PDFs"}
+          {isProcessing ? "Processing..." : "Process Files"}
         </button>
         <button className="tool-btn" onClick={reset} disabled={isProcessing}>
           Clear All
