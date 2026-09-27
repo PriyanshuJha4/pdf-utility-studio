@@ -6,6 +6,5 @@ export type PdfFile = {
   size: number;
 };
 
-export type ToolType = "merge" | "images" | "ppt";
-
+export type ToolType = "merge" | "images" | "ppt" | "images-to-pdf";
 export type ImageFormat = "jpeg" | "png";
