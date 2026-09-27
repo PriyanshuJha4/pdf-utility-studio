@@ -29,5 +29,7 @@ export async function imagesToPdf(
   }
 
   const pdfBytes = await pdfDoc.save();
-  return new Blob([pdfBytes.buffer as ArrayBuffer], { type: "application/pdf" });
+  
+  // Uint8Array को BlobPart की तरह सुरक्षित पास करने का तरीका
+  return new Blob([pdfBytes as unknown as BlobPart], { type: "application/pdf" });
 }

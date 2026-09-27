@@ -1,3 +1,6 @@
+export type ToolType = "merge" | "images" | "ppt" | "images-to-pdf";
+
+export type ImageFormat = "jpeg" | "png";
 
 export type PdfFile = {
   id: string;
@@ -5,6 +8,3 @@ export type PdfFile = {
   name: string;
   size: number;
 };
-
-export type ToolType = "merge" | "images" | "ppt" | "images-to-pdf";
-export type ImageFormat = "jpeg" | "png";
