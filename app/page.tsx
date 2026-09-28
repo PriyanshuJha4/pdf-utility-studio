@@ -7,6 +7,7 @@ import { mergePdfs } from "@/lib/pdf/mergePdf";
 import { convertPdfToImages } from "@/lib/pdf/pdfToImages";
 import { imagesToPdf } from "@/lib/pdf/imagesToPdf";
 import { pdfToPpt } from "@/lib/ppt/pdfToPpt";
+import { compressPdf } from "@/lib/pdf/compressPdf";
 import { createImageZip } from "@/lib/zip/createZip";
 import { downloadBlob } from "@/lib/downloads";
 
@@ -14,6 +15,7 @@ export default function Home() {
   const [tool, setTool] = useState<ToolType>("merge");
   const [files, setFiles] = useState<PdfFile[]>([]);
   const [imageFormat, setImageFormat] = useState<ImageFormat>("jpeg");
+  const [compressQuality, setCompressQuality] = useState<number>(0.65);
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0, label: "" });
@@ -134,6 +136,24 @@ export default function Home() {
         );
         downloadBlob(pdfBlob, "images-combined.pdf");
       }
+
+      if (tool === "compress") {
+        for (let i = 0; i < files.length; i++) {
+          const pdfFile = files[i];
+          const baseName = pdfFile.name.replace(/\.pdf$/i, "");
+          const compressedBlob = await compressPdf(
+            pdfFile.file,
+            compressQuality,
+            (current, total) =>
+              setProgress({
+                current,
+                total,
+                label: `Compressing ${pdfFile.name}: page ${current} of ${total}`,
+              })
+          );
+          downloadBlob(compressedBlob, `${baseName}-compressed.pdf`);
+        }
+      }
     } catch (err) {
       setError("Failed to process files. Please verify the files and try again.");
       console.error(err);
@@ -163,6 +183,9 @@ export default function Home() {
         <button className={`tool-btn ${tool === "images-to-pdf" ? "active" : ""}`} onClick={() => { setTool("images-to-pdf"); reset(); }}>
           Images → PDF
         </button>
+        <button className={`tool-btn ${tool === "compress" ? "active" : ""}`} onClick={() => { setTool("compress"); reset(); }}>
+          Compress PDF
+        </button>
       </div>
 
       <div
@@ -191,6 +214,8 @@ export default function Home() {
         <p>
           {tool === "images-to-pdf"
             ? "Drop Images (JPG, PNG) here, or click to choose"
+            : tool === "compress"
+            ? "Drop PDF files here to compress, or click to choose"
             : "Drop PDF files here, or click to choose"}
         </p>
         <input
@@ -210,6 +235,22 @@ export default function Home() {
             <select value={imageFormat} onChange={(e) => setImageFormat(e.target.value as ImageFormat)}>
               <option value="jpeg">JPG</option>
               <option value="png">PNG</option>
+            </select>
+          </label>
+        </div>
+      )}
+
+      {tool === "compress" && (
+        <div className="card">
+          <label>
+            Compression Level:{" "}
+            <select
+              value={compressQuality}
+              onChange={(e) => setCompressQuality(parseFloat(e.target.value))}
+            >
+              <option value={0.8}>Low Compression (High Quality)</option>
+              <option value={0.65}>Recommended (Balanced)</option>
+              <option value={0.4}>High Compression (Small Size)</option>
             </select>
           </label>
         </div>
